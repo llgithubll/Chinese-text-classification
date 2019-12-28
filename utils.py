@@ -5,9 +5,10 @@
 import torch
 import numpy as np
 import re
-import pickle
+import pandas as pd
 from collections import Counter
 import jieba
+import os
 
 
 def generate_bigrams(x):
@@ -34,7 +35,17 @@ def binary_accuracy(preds, y):
     return acc
 
 
-def train_rnn(model, iterator, optimizer, criterion):
+def categorical_accuracy(preds, y):
+    """
+    Returns accuracy per batch, i.e. if you get 8/10 right, this returns 0.8, NOT 8
+    """
+    max_preds = preds.argmax(dim=1, keepdim=True)  # get the index of the max probability
+    correct = max_preds.squeeze(1).eq(y)
+    return correct.sum() / torch.FloatTensor([y.shape[0]])
+
+
+def binary_train(model, iterator, optimizer, criterion):
+    """二分类训练"""
     epoch_loss = 0
     epoch_acc = 0
 
@@ -59,7 +70,7 @@ def train_rnn(model, iterator, optimizer, criterion):
     return epoch_loss / len(iterator), epoch_acc / len(iterator)
 
 
-def evaluate_rnn(model, iterator, criterion):
+def binary_evaluate(model, iterator, criterion):
     epoch_loss = 0
     epoch_acc = 0
 
@@ -79,6 +90,51 @@ def evaluate_rnn(model, iterator, criterion):
 
     return epoch_loss / len(iterator), epoch_acc / len(iterator)
 
+
+def categorical_train(model, iterator, optimizer, criterion):
+    """多分类训练"""
+    epoch_loss = 0
+    epoch_acc = 0
+
+    model.train()
+
+    for batch in iterator:
+        optimizer.zero_grad()
+
+        predictions = model(batch.text)
+
+        loss = criterion(predictions, batch.label)
+
+        acc = categorical_accuracy(predictions, batch.label)
+
+        loss.backward()
+
+        optimizer.step()
+
+        epoch_loss += loss.item()
+        epoch_acc += acc.item()
+
+    return epoch_loss / len(iterator), epoch_acc / len(iterator)
+
+
+def categorical_evaluate(model, iterator, criterion):
+    epoch_loss = 0
+    epoch_acc = 0
+
+    model.eval()
+
+    with torch.no_grad():
+        for batch in iterator:
+            predictions = model(batch.text)
+
+            loss = criterion(predictions, batch.label)
+
+            acc = categorical_accuracy(predictions, batch.label)
+
+            epoch_loss += loss.item()
+            epoch_acc += acc.item()
+
+    return epoch_loss / len(iterator), epoch_acc / len(iterator)
 
 def epoch_time(start_time, end_time):
     """计算一次epoch时间"""
@@ -104,22 +160,37 @@ def batch_iter(x, y, batch_size=64):
         yield x_shuffle[start_id:end_id], y_shuffle[start_id:end_id]
 
 
-def predict_sentiment(weibo_config, sentence, min_len=5):
+def predict_sentiment(config, sentence, min_len=5):
     """对输入的句子进行预测"""
     # 加载模型 进行测试
-    weibo_config.model.load_state_dict(torch.load(weibo_config.best_model))
-    weibo_config.model.eval()
+    config.model.load_state_dict(torch.load(config.best_model))
+    config.model.eval()
     tokenized = tokenizer(sentence)
     if len(tokenized) < min_len:  # 在textcnn中 句子的最大 大小 不能小于 所有卷积核中宽度最大的卷积核宽度
         tokenized += ['<pad>'] * (min_len - len(tokenized))
-    indexed = [weibo_config.TEXT.vocab.stoi[t] for t in tokenized]
+    indexed = [config.TEXT.vocab.stoi[t] for t in tokenized]
     length = [len(indexed)]
-    tensor = torch.LongTensor(indexed).to(weibo_config.device)
+    tensor = torch.LongTensor(indexed).to(config.device)
     tensor = tensor.unsqueeze(0)
     length_tensor = torch.LongTensor(length)
     # prediction = torch.sigmoid(weibo_config.model(tensor, length_tensor))
-    prediction = torch.sigmoid(weibo_config.model(tensor))
+    prediction = torch.sigmoid(config.model(tensor))
     return prediction.item()
+
+def predict_class(config, sentence, min_len=5):
+    """多分类"""
+    # 加载模型 进行测试
+    config.model.load_state_dict(torch.load(config.best_model))
+    config.model.eval()
+    tokenized = tokenizer(sentence)
+    if len(tokenized) < min_len:
+        tokenized += ['<pad>'] * (min_len - len(tokenized))
+    indexed = [config.TEXT.vocab.stoi[t] for t in tokenized]
+    tensor = torch.LongTensor(indexed).to(config.device)
+    tensor = tensor.unsqueeze(1)
+    preds = config.model(tensor)
+    max_preds = preds.argmax(dim = 1)
+    return max_preds.item()
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~分割线：下面全部都是数据预处理需要用到的函数~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -221,3 +292,22 @@ def pad_sentence_maxlen(sentence, max_len):
             for j in range(max_len - len(sentence[i])):
                 sentence[i].append(0)
     return sentence
+
+
+def save_cnews_csv(cnews_path):
+    test = pd.read_table(os.path.join(cnews_path, 'cnews.test.txt'), sep='\t', names=['label', 'text'], header=None)
+    train = pd.read_table(os.path.join(cnews_path, 'cnews.train.txt'), sep='\t', names=['label', 'text'], header=None)
+    val = pd.read_table(os.path.join(cnews_path, 'cnews.val.txt'), sep='\t', names=['label', 'text'], header=None)
+    # 数据清洗
+    test['clean_text'] = test['text'].apply(clean_line)
+    test = test.drop(columns=['text'])
+    train['clean_text'] = train['text'].apply(clean_line)
+    train = train.drop(columns=['text'])
+    val['clean_text'] = val['text'].apply(clean_line)
+    val = val.drop(columns=['text'])
+
+    test.to_csv(os.path.join(cnews_path, 'csv/test.csv'), index=0, encoding="utf8")
+    train.to_csv(os.path.join(cnews_path, 'csv/train.csv'), index=0, encoding="utf8")
+    val.to_csv(os.path.join(cnews_path, 'csv/val.csv'), index=0, encoding="utf8")
+
+

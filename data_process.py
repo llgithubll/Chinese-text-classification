@@ -2,7 +2,7 @@
 # @Time    : 2019/12/27 7:22 下午
 # @Author  : lizhen
 # @FileName: data_process.py
-from config import WeiboConfig
+from config import WeiboConfig, CnewsConfig
 import pandas as pd
 from utils import clean_line, split_train_test, tokenizer, generate_bigrams
 from torchtext import data
@@ -13,6 +13,7 @@ import os
 
 def weibo_data_process():
     weibo_config = WeiboConfig()
+    # 加载数据
     weibo_data = pd.read_csv(weibo_config.raw_data)
     # 数据清洗
     weibo_data['clean_text'] = weibo_data['review'].apply(clean_line)
@@ -28,7 +29,8 @@ def weibo_data_process():
 
     # 定义 torchtext 的LABEL,TEXT
     # 注意 LABEL对应：LabelField，TEXT 对应：Field
-    LABEL = data.LabelField(sequential=False, use_vocab=False, dtype=torch.float)
+    # LABEL = data.LabelField(sequential=False, use_vocab=False, dtype=torch.float) # 二分类
+    LABEL = data.LabelField(sequential=False, use_vocab=False)
     # TEXT = data.Field(sequential=True,tokenize=tokenizer, include_lengths=True) # include_lengths=True for LSTM
     # TEXT = data.Field(sequential=True, tokenize=tokenizer,preprocessing = generate_bigrams,
     # include_lengths=True) # FastText
@@ -66,5 +68,45 @@ def weibo_data_process():
     return TEXT, LABEL, train_iterator, val_iterator, test_iterator
 
 
+def cnews_data_process():
+    config = CnewsConfig()
+    # 加载数据
+    # 数据清洗
+    # 划分训练集
+    # 保存csv
+    # 定义field
+    LABEL = data.LabelField()
+    TEXT = data.Field(sequential=True, tokenize=tokenizer, batch_first=True)
+    # 构建数据集
+    train, val, test = data.TabularDataset.splits(path=config.csv_path, train='train.csv',
+                                                  validation='val.csv', test='test.csv', skip_header=True, format='csv',
+                                                  fields=[('label', LABEL), ('text', TEXT)])
+
+
+    # 构建词汇缓存目录
+    cache = '.vector_cache'
+    if not os.path.exists(cache):
+        os.mkdir(cache)
+    vectors = Vectors(name=config.pretrained_word_embedding, cache=cache)
+    # 构建词汇表
+    TEXT.build_vocab(train, max_size=config.vocab_size, vectors=vectors, unk_init=torch.Tensor.normal_)
+    # TEXT.build_vocab(train, max_size=weibo_config.vocab_size) # 不使用预训练的词向量
+    LABEL.build_vocab(train)
+    print(LABEL.vocab.stoi)
+    # 构建迭代器
+
+    train_iterator = data.Iterator(train, batch_size=64, device=config.device, sort_key=lambda x: len(x.text),
+                                   sort_within_batch=True,
+                                   repeat=False)
+    val_iterator = data.Iterator(val, batch_size=64, device=config.device, sort_key=lambda x: len(x.text),
+                                 sort_within_batch=True,
+                                 repeat=False)
+    test_iterator = data.Iterator(test, batch_size=128, device=config.device, sort_key=lambda x: len(x.text),
+                                  sort_within_batch=True,
+                                  repeat=False)
+
+    return TEXT, LABEL, train_iterator, val_iterator, test_iterator
+
+
 if __name__ == '__main__':
-    weibo_data_process()
+    cnews_data_process()
