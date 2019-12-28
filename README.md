@@ -26,6 +26,8 @@
 
 * [cnews](/data/cnews/*) 新闻数据，使用THUCNews的一个子集。训练使用了其中的10个分类，每个分类6500条数据。类别：体育, 财经, 房产, 家居, 教育, 科技, 时尚, 时政, 游戏, 娱乐
 
+## 预训练词向量
+* [中文词向量](https://github.com/Embedding/Chinese-Word-Vectors)：有各种预训练的中文词向量
 
 
 ## 传统机器学习方法
