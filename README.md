@@ -41,11 +41,21 @@ Test Loss: 0.693 | Test Acc: 50.03%
 
 ### LSTM
 因为rnn存在梯度弥散的问题，LSTM通过增加一个循环状态memery，使用门来控制memery的进出，可以克服这个问题
-![avatar](./images/lstm.png)
+![avatar](images/lstm.png)
+
+
+### fastText
+![avatar](images/FastText.png)
+与LSTM相比模型参数相差不大，但是fastText速度更快，是LSTM的1/6。效果略低于lstm
+Epoch: 05 | Epoch Time: 0m 10s
+	Train Loss: 0.082 | Train Acc: 97.83%
+	 Val. Loss: 0.170 |  Val. Acc: 95.21%
+Test Loss: 0.171 | Test Acc: 95.49%
+
 
 ### bi-rnn
-![avatar](./images/bi_rnn.png)
+![avatar](images/bi_rnn.png)
 
 ### Multi-layer RNN(deep-rnn)
-![avatar](./images/multi_rnn.png)
+![avatar](images/multi_rnn.png)
 ## 参考

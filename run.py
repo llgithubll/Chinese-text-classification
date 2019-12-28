@@ -7,7 +7,7 @@ def weibo_run():
     weibo_trainer(weibo_config)
     # 测试
     weibo_test(weibo_config)
-    # print(predict_sentiment(weibo_config,'辣鸡苹果电脑'))
+    print(predict_sentiment(weibo_config,'辣鸡苹果电脑'))
 
 
 

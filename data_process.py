@@ -4,7 +4,7 @@
 # @FileName: data_process.py
 from config import WeiboConfig
 import pandas as pd
-from utils import clean_line, split_train_test, tokenizer
+from utils import clean_line, split_train_test, tokenizer,generate_bigrams
 from torchtext import data
 from torchtext.vocab import Vectors
 import torch
@@ -29,7 +29,9 @@ def weibo_data_process():
     # 定义 torchtext 的LABEL,TEXT
     # 注意 LABEL对应：LabelField，TEXT 对应：Field
     LABEL = data.LabelField(sequential=False, use_vocab=False, dtype=torch.float)
-    TEXT = data.Field(sequential=True, tokenize=tokenizer, include_lengths=True)
+    # TEXT = data.Field(sequential=True,tokenize=tokenizer, include_lengths=True) # LSTM
+    # TEXT = data.Field(sequential=True, tokenize=tokenizer,preprocessing = generate_bigrams, include_lengths=True) # FastText
+    TEXT = data.Field(sequential=True, tokenize=tokenizer, batch_first = True) # TextCNN
 
     # 构建Dataset
     train, val = data.TabularDataset.splits(path=weibo_config.data_path, train='weibo_train.csv',
@@ -45,8 +47,8 @@ def weibo_data_process():
         os.mkdir(cache)
     vectors = Vectors(name=weibo_config.pretrained_word_embedding, cache=cache)
     # 构建词汇表
-    # TEXT.build_vocab(train, max_size=weibo_config.vocab_size, vectors=vectors, unk_init=torch.Tensor.normal_)
-    TEXT.build_vocab(train, max_size=weibo_config.vocab_size)
+    TEXT.build_vocab(train, max_size=weibo_config.vocab_size, vectors=vectors, unk_init=torch.Tensor.normal_)
+    # TEXT.build_vocab(train, max_size=weibo_config.vocab_size)
     LABEL.build_vocab(train)
 
     # 构建迭代器

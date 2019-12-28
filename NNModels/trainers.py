@@ -4,7 +4,7 @@ from data_process import weibo_data_process
 from utils import predict_sentiment,count_parameters
 from config import WeiboConfig
 from torch import optim, nn
-from NNModels.layers import BiLSTM
+from NNModels.layers import BiLSTM,FastText
 import torch
 
 def parameter_prepared():
@@ -22,9 +22,7 @@ def parameter_prepared():
 
 
     # 定义模型
-    weibo_config.model = BiLSTM(weibo_config.input_dim, weibo_config.embedding_dim, weibo_config.hidden_dim,
-                                weibo_config.output_dim, weibo_config.n_layer, weibo_config.bidirection,
-                                weibo_config.dropout, weibo_config.pad_idx)
+    weibo_config.model = FastText(weibo_config.input_dim, weibo_config.embedding_dim, weibo_config.output_dim, weibo_config.pad_idx)
     # 优化器，损失
     weibo_config.optimizer = optim.Adam(weibo_config.model.parameters(), lr=1e-3)
     weibo_config.criterion = nn.BCEWithLogitsLoss()

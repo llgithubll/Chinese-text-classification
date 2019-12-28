@@ -10,6 +10,12 @@ from collections import Counter
 import jieba
 
 
+def generate_bigrams(x):
+    n_grams = set(zip(*[x[i:] for i in range(2)]))
+    for n_gram in n_grams:
+        x.append(' '.join(n_gram))
+    return x
+
 def count_parameters(model):
     """统计模型参数"""
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -36,7 +42,7 @@ def train_rnn(model, iterator, optimizer, criterion):
     for batch in iter(iterator):
         optimizer.zero_grad()
         text, text_lengths = batch.text
-        predictions = model(text, text_lengths).squeeze(1)
+        predictions = model(text).squeeze(1)
 
         loss = criterion(predictions, batch.label)
 
@@ -61,7 +67,7 @@ def evaluate_rnn(model, iterator, criterion):
     with torch.no_grad():
         for batch in iterator:
             text, text_lengths = batch.text
-            predictions = model(text, text_lengths).squeeze(1)
+            predictions = model(text).squeeze(1)
 
             loss = criterion(predictions, batch.label)
 
@@ -108,7 +114,8 @@ def predict_sentiment(weibo_config,sentence):
     tensor = torch.LongTensor(indexed).to(weibo_config.device)
     tensor = tensor.unsqueeze(1)
     length_tensor = torch.LongTensor(length)
-    prediction = torch.sigmoid(weibo_config.model(tensor, length_tensor))
+    # prediction = torch.sigmoid(weibo_config.model(tensor, length_tensor))
+    prediction = torch.sigmoid(weibo_config.model(tensor))
     return prediction.item()
 
 
