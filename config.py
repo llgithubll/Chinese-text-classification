@@ -1,0 +1,23 @@
+import torch
+from utils import batch_iter
+
+
+class WeiboConfig():
+    def __init__(self):
+        self.stop_words = './data/stop_words.txt'
+        self.raw_data = './data/weibo_senti_100k.csv'
+        self.vocab_size = 6000
+        self.train_csv = './data/weibo_train.csv'
+        self.val_csv = './data/weibo_val.csv'
+        self.test_csv = './data/weibo_test.csv'
+        self.data_path = './data/'
+        self.batch_size = 64
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.embedding_dim = 100
+        self.hidden_dim = 256
+        self.output_dim = 1
+        self.epoch = 10
+        self.iterator = batch_iter
+        self.best_model = './best_models/rnn_model.pt'
+
+
