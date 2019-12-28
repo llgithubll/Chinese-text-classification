@@ -9,6 +9,7 @@ import pickle
 from collections import Counter
 import jieba
 
+
 def count_parameters(model):
     """统计模型参数"""
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -25,7 +26,8 @@ def binary_accuracy(preds, y):
     acc = correct.sum() / len(correct)
     return acc
 
-def train(model, iterator, optimizer, criterion):
+
+def train_rnn(model, iterator, optimizer, criterion):
     epoch_loss = 0
     epoch_acc = 0
 
@@ -33,8 +35,8 @@ def train(model, iterator, optimizer, criterion):
 
     for batch in iter(iterator):
         optimizer.zero_grad()
-
-        predictions = model(batch.text).squeeze(1)
+        text, text_lengths = batch.text
+        predictions = model(text, text_lengths).squeeze(1)
 
         loss = criterion(predictions, batch.label)
 
@@ -50,7 +52,7 @@ def train(model, iterator, optimizer, criterion):
     return epoch_loss / len(iterator), epoch_acc / len(iterator)
 
 
-def evaluate(model, iterator, criterion):
+def evaluate_rnn(model, iterator, criterion):
     epoch_loss = 0
     epoch_acc = 0
 
@@ -58,7 +60,8 @@ def evaluate(model, iterator, criterion):
 
     with torch.no_grad():
         for batch in iterator:
-            predictions = model(batch.text).squeeze(1)
+            text, text_lengths = batch.text
+            predictions = model(text, text_lengths).squeeze(1)
 
             loss = criterion(predictions, batch.label)
 
@@ -93,6 +96,22 @@ def batch_iter(x, y, batch_size=64):
         end_id = min((i + 1) * batch_size, data_len)
         yield x_shuffle[start_id:end_id], y_shuffle[start_id:end_id]
 
+
+def predict_sentiment(weibo_config,sentence):
+    """对输入的句子进行预测"""
+    # 加载模型 进行测试
+    weibo_config.model.load_state_dict(torch.load(weibo_config.best_model))
+    weibo_config.model.eval()
+    tokenized = tokenizer(sentence)
+    indexed = [weibo_config.TEXT.vocab.stoi[t] for t in tokenized]
+    length = [len(indexed)]
+    tensor = torch.LongTensor(indexed).to(weibo_config.device)
+    tensor = tensor.unsqueeze(1)
+    length_tensor = torch.LongTensor(length)
+    prediction = torch.sigmoid(weibo_config.model(tensor, length_tensor))
+    return prediction.item()
+
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~分割线：下面全部都是数据预处理需要用到的函数~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def clean_line(s):
@@ -115,21 +134,24 @@ def clean_line(s):
     s = re.sub('[~]+', '~', s)
     return s
 
-def tokenizer(text):  # create a tokenizer function
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~分割线，下面是我自己写的，噢，上面也是我自己写的，下面的没有用torchtext包~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def tokenizer(text, use_stop_words=False):  # create a tokenizer function
     """
     定义分词操作
     """
-    #     stop_words = stopwordslist('./data/stop_words.txt')
-    #     text_cut = jieba.cut(text, cut_all=False)
-    #     result = []
-    #     for item in text_cut:
-    #         if item not in stop_words:
-    #             result.append(item)
-    #     return result
-    result = list(jieba.cut(text))
+    if use_stop_words:
+        stop_words = stopwordslist('./data/stop_words.txt')
+        text_cut = jieba.cut(text, cut_all=False)
+        result = []
+        for item in text_cut:
+            if item not in stop_words:
+                result.append(item)
+        return result
+    else:
+        result = list(jieba.cut(text))
     return result
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~分割线，下面是我自己写的，噢，上面也是我自己写的，下面的没有用torchtext包~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 # 分词，去停用词
@@ -137,6 +159,7 @@ def stopwordslist(filepath):
     """加载停用词文件"""
     stopwords = [line.strip() for line in open(filepath, 'rb').readlines()]
     return stopwords
+
 
 def split_train_test(data, frac):
     # DataFrame.sample(n=None, frac=None, replace=False, weights=None, random_state=None, axis=None)
@@ -164,6 +187,7 @@ def build_vocab(contents, vocab_size):
     word_to_id = dict(zip(words, range(len(words))))
     return words, word_to_id, max_sentence_len
 
+
 def data_to_ids(data, word_to_id, max_lenth=500):
     """把句子中的词转换成id表示"""
     contents, labels = data['cuted_review'], data['label']
@@ -187,4 +211,3 @@ def pad_sentence_maxlen(sentence, max_len):
             for j in range(max_len - len(sentence[i])):
                 sentence[i].append(0)
     return sentence
-

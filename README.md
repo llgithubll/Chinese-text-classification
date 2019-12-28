@@ -39,4 +39,13 @@ Epoch: 10 | Epoch Time: 0m 9s
 	 Val. Loss: 0.697 |  Val. Acc: 49.14%
 Test Loss: 0.693 | Test Acc: 50.03%
 
+### LSTM
+因为rnn存在梯度弥散的问题，LSTM通过增加一个循环状态memery，使用门来控制memery的进出，可以克服这个问题
+![avatar](./images/lstm.png)
+
+### bi-rnn
+![avatar](./images/bi_rnn.png)
+
+### Multi-layer RNN(deep-rnn)
+![avatar](./images/multi_rnn.png)
 ## 参考

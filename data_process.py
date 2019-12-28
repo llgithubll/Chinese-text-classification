@@ -6,7 +6,9 @@ from config import WeiboConfig
 import pandas as pd
 from utils import clean_line, split_train_test, tokenizer
 from torchtext import data
+from torchtext.vocab import Vectors
 import torch
+import os
 
 
 def weibo_data_process():
@@ -27,7 +29,7 @@ def weibo_data_process():
     # 定义 torchtext 的LABEL,TEXT
     # 注意 LABEL对应：LabelField，TEXT 对应：Field
     LABEL = data.LabelField(sequential=False, use_vocab=False, dtype=torch.float)
-    TEXT = data.Field(sequential=True, tokenize=tokenizer)
+    TEXT = data.Field(sequential=True, tokenize=tokenizer, include_lengths=True)
 
     # 构建Dataset
     train, val = data.TabularDataset.splits(path=weibo_config.data_path, train='weibo_train.csv',
@@ -37,20 +39,29 @@ def weibo_data_process():
 
     test = data.TabularDataset(path=weibo_config.test_csv, format='csv', skip_header=True,
                                fields=[('label', LABEL), ('text', TEXT)])
+    # 构建词汇缓存目录
+    cache = '.vector_cache'
+    if not os.path.exists(cache):
+        os.mkdir(cache)
+    vectors = Vectors(name=weibo_config.pretrained_word_embedding, cache=cache)
     # 构建词汇表
-    TEXT.build_vocab(train, max_size=6000)
+    # TEXT.build_vocab(train, max_size=weibo_config.vocab_size, vectors=vectors, unk_init=torch.Tensor.normal_)
+    TEXT.build_vocab(train, max_size=weibo_config.vocab_size)
     LABEL.build_vocab(train)
 
     # 构建迭代器
-    train_iterator = data.Iterator(train, batch_size=64, device=weibo_config.device, sort=False,
-                                   sort_within_batch=False,
+    train_iterator = data.Iterator(train, batch_size=64, device=weibo_config.device, sort_key=lambda x: len(x.text),
+                                   sort_within_batch=True,
                                    repeat=False)
-    val_iterator = data.Iterator(val, batch_size=64, device=weibo_config.device, sort=False, sort_within_batch=False,
+    val_iterator = data.Iterator(val, batch_size=64, device=weibo_config.device, sort_key=lambda x: len(x.text),
+                                 sort_within_batch=True,
                                  repeat=False)
-    test_iterator = data.Iterator(test, batch_size=128, device=weibo_config.device, sort=False, sort_within_batch=False,
+    test_iterator = data.Iterator(test, batch_size=128, device=weibo_config.device, sort_key=lambda x: len(x.text),
+                                  sort_within_batch=True,
                                   repeat=False)
 
-    return TEXT,LABEL,train_iterator,val_iterator,test_iterator
+    return TEXT, LABEL, train_iterator, val_iterator, test_iterator
+
 
 if __name__ == '__main__':
     weibo_data_process()

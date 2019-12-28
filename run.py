@@ -1,5 +1,15 @@
-from NNModels.trainers import weibo_test,weibo_trainer
-from config import WeiboConfig
-weibo_config = WeiboConfig()
-weibo_config,test_iterator = weibo_trainer(weibo_config)
-weibo_test(weibo_config,test_iterator)
+from NNModels.trainers import weibo_test, weibo_trainer, parameter_prepared
+from utils import predict_sentiment
+
+def weibo_run():
+    weibo_config = parameter_prepared()
+    # 训练
+    weibo_trainer(weibo_config)
+    # 测试
+    weibo_test(weibo_config)
+    # print(predict_sentiment(weibo_config,'辣鸡苹果电脑'))
+
+
+
+if __name__ == '__main__':
+    weibo_run()
