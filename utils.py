@@ -16,6 +16,7 @@ def generate_bigrams(x):
         x.append(' '.join(n_gram))
     return x
 
+
 def count_parameters(model):
     """统计模型参数"""
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -41,8 +42,8 @@ def train_rnn(model, iterator, optimizer, criterion):
 
     for batch in iter(iterator):
         optimizer.zero_grad()
-        text, text_lengths = batch.text
-        predictions = model(text).squeeze(1)
+        # text, text_lengths = batch.text
+        predictions = model(batch.text).squeeze(1)
 
         loss = criterion(predictions, batch.label)
 
@@ -66,8 +67,8 @@ def evaluate_rnn(model, iterator, criterion):
 
     with torch.no_grad():
         for batch in iterator:
-            text, text_lengths = batch.text
-            predictions = model(text).squeeze(1)
+            # text, text_lengths = batch.text
+            predictions = model(batch.text).squeeze(1)
 
             loss = criterion(predictions, batch.label)
 
@@ -103,16 +104,18 @@ def batch_iter(x, y, batch_size=64):
         yield x_shuffle[start_id:end_id], y_shuffle[start_id:end_id]
 
 
-def predict_sentiment(weibo_config,sentence):
+def predict_sentiment(weibo_config, sentence, min_len=5):
     """对输入的句子进行预测"""
     # 加载模型 进行测试
     weibo_config.model.load_state_dict(torch.load(weibo_config.best_model))
     weibo_config.model.eval()
     tokenized = tokenizer(sentence)
+    if len(tokenized) < min_len:  # 在textcnn中 句子的最大 大小 不能小于 所有卷积核中宽度最大的卷积核宽度
+        tokenized += ['<pad>'] * (min_len - len(tokenized))
     indexed = [weibo_config.TEXT.vocab.stoi[t] for t in tokenized]
     length = [len(indexed)]
     tensor = torch.LongTensor(indexed).to(weibo_config.device)
-    tensor = tensor.unsqueeze(1)
+    tensor = tensor.unsqueeze(0)
     length_tensor = torch.LongTensor(length)
     # prediction = torch.sigmoid(weibo_config.model(tensor, length_tensor))
     prediction = torch.sigmoid(weibo_config.model(tensor))
