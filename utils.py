@@ -9,6 +9,7 @@ import pandas as pd
 from collections import Counter
 import jieba
 import os
+import tqdm
 
 
 def generate_bigrams(x):
@@ -79,7 +80,7 @@ def binary_evaluate(model, iterator, criterion):
     with torch.no_grad():
         for batch in iterator:
             # text, text_lengths = batch.text
-            predictions = model(batch.text).squeeze(1)
+            predictions = model(batch.text)
 
             loss = criterion(predictions, batch.label)
 
@@ -100,8 +101,9 @@ def categorical_train(model, iterator, optimizer, criterion):
 
     for batch in iterator:
         optimizer.zero_grad()
+        text, text_lenths = batch.text
 
-        predictions = model(batch.text)
+        predictions = model(text,text_lenths)
 
         loss = criterion(predictions, batch.label)
 
@@ -125,7 +127,8 @@ def categorical_evaluate(model, iterator, criterion):
 
     with torch.no_grad():
         for batch in iterator:
-            predictions = model(batch.text)
+            text, text_lenths = batch.text
+            predictions = model(text,text_lenths)
 
             loss = criterion(predictions, batch.label)
 
@@ -192,7 +195,31 @@ def predict_class(config, sentence, min_len=5):
     max_preds = preds.argmax(dim = 1)
     return max_preds.item()
 
+def get_vector(embeddings, word):
+    """获取word对应的词向量
+        embedding:预训练或者训练好的词向量
+    """
+    assert word in embeddings.stoi, f'*{word}* is not in the vocab!'
+    return embeddings.vectors[embeddings.stoi[word]]
 
+
+def closest_words(embeddings, vector, n=10):
+    """选择与向量vector最接近的是个向量，可以与get_vector结合使用，获取某个词最相似的十个词"""
+    distances = [(word, torch.dist(vector, get_vector(embeddings, word)).item()) for word in embeddings.itos]
+
+    return sorted(distances, key=lambda w: w[1])[:n]
+
+
+def write_embeddings(path, embeddings, vocab):
+    """保存训练好的embedding"""
+    with open(path, 'w') as f:
+        for i, embedding in enumerate(tqdm(embeddings)):
+            word = vocab.itos[i]
+            # skip words with unicode symbols
+            if len(word) != len(word.encode()):
+                continue
+            vector = ' '.join([str(i) for i in embedding.tolist()])
+            f.write(f'{word} {vector}\n')
 # ~~~~~~~~~~~~~~~~~~~~~~~~分割线：下面全部都是数据预处理需要用到的函数~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def clean_line(s):

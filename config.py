@@ -31,15 +31,18 @@ class CnewsConfig():
     def __init__(self):
         self.stop_words = './data/stop_words.txt'
         self.csv_path = './data/cnews/csv/'
-        self.pretrained_word_embedding = './data/word_embeddings/sgns.sogounews.bigram-char'
+        self.pretrained_word_embedding = './data/word_embeddings/sgns.sogou.word'
         self.vocab_size = 60000
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.embedding_dim = 300
+        self.hidden_dim = 256
+        self.n_layer = 2
         self.n_filter = 100
         self.filter_sizes = [3,4,5]
         self.dropout = 0.5
         self.epoch = 5
-        self.best_model = './best_models/textcnn_model.pt'
+        self.best_model = './best_models/bilstm_model.pt'
+        self.bidirection = True
 
 
 

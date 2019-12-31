@@ -21,19 +21,22 @@ def parameter_prepared():
     config.unk_idx = config.TEXT.vocab.stoi[config.TEXT.unk_token]
 
     # 输出预训练embedding的shape
-    # pretrained_embeddings = weibo_config.TEXT.vocab.vectors
-    # print(f'word embedding shape:{pretrained_embeddings.shape}')
+    pretrained_embeddings = config.TEXT.vocab.vectors
+    print(f'word embedding shape:{pretrained_embeddings.shape}')
 
 
     # 定义模型
-    config.model = TextCNN(config.input_dim, config.embedding_dim,config.n_filter,config.filter_sizes, config.output_dim,config.dropout, config.pad_idx)
+    config.model = BiLSTM(config.input_dim,config.embedding_dim,config.hidden_dim,config.output_dim,config.n_layer,
+                          config.bidirection,config.dropout, config.pad_idx)
+
+
     # 优化器，损失
     config.optimizer = optim.Adam(config.model.parameters(), lr=1e-3)
     # config.criterion = nn.BCEWithLogitsLoss() # 二分类
     config.criterion = nn.CrossEntropyLoss()
 
     # 把词向量copy到模型
-    # weibo_config.model.embedding.weight.data.copy_(pretrained_embeddings)
+    config.model.embedding.weight.data.copy_(pretrained_embeddings)
     # 把unknown 和 pad 向量设置为零
     config.model.embedding.weight.data[config.unk_idx] = torch.zeros(config.embedding_dim)
     config.model.embedding.weight.data[config.pad_idx] = torch.zeros(config.embedding_dim)
@@ -41,6 +44,8 @@ def parameter_prepared():
     print(config.model.embedding.weight.data)
 
     # 加载到GPU
+    # # 开启并行运算
+    # config.model = torch.nn.DataParallel(config.model)
     config.model = config.model.to(config.device)
     config.criterion = config.criterion.to(config.device)
 

@@ -31,10 +31,10 @@ def weibo_data_process():
     # 注意 LABEL对应：LabelField，TEXT 对应：Field
     # LABEL = data.LabelField(sequential=False, use_vocab=False, dtype=torch.float) # 二分类
     LABEL = data.LabelField(sequential=False, use_vocab=False)
-    # TEXT = data.Field(sequential=True,tokenize=tokenizer, include_lengths=True) # include_lengths=True for LSTM
+    TEXT = data.Field(sequential=True,tokenize=tokenizer, include_lengths=True) # include_lengths=True for LSTM
     # TEXT = data.Field(sequential=True, tokenize=tokenizer,preprocessing = generate_bigrams,
     # include_lengths=True) # FastText
-    TEXT = data.Field(sequential=True, tokenize=tokenizer, batch_first=True)  # batch_first = True for TextCNN
+    # TEXT = data.Field(sequential=True, tokenize=tokenizer, batch_first=True)  # batch_first = True for TextCNN
 
     # 构建Dataset
     train, val = data.TabularDataset.splits(path=weibo_config.data_path, train='weibo_train.csv',
@@ -61,7 +61,7 @@ def weibo_data_process():
     val_iterator = data.Iterator(val, batch_size=64, device=weibo_config.device, sort_key=lambda x: len(x.text),
                                  sort_within_batch=True,
                                  repeat=False)
-    test_iterator = data.Iterator(test, batch_size=128, device=weibo_config.device, sort_key=lambda x: len(x.text),
+    test_iterator = data.Iterator(test, batch_size=64, device=weibo_config.device, sort_key=lambda x: len(x.text),
                                   sort_within_batch=True,
                                   repeat=False)
 
@@ -76,7 +76,8 @@ def cnews_data_process():
     # 保存csv
     # 定义field
     LABEL = data.LabelField()
-    TEXT = data.Field(sequential=True, tokenize=tokenizer, batch_first=True)
+    # TEXT = data.Field(sequential=True, tokenize=tokenizer, batch_first=True)
+    TEXT = data.Field(sequential=True, tokenize=tokenizer, include_lengths=True)
     # 构建数据集
     train, val, test = data.TabularDataset.splits(path=config.csv_path, train='train.csv',
                                                   validation='val.csv', test='test.csv', skip_header=True, format='csv',
