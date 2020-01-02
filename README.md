@@ -46,7 +46,11 @@ Test Loss: 0.693 | Test Acc: 50.03%
 ### LSTM
 因为rnn存在梯度弥散的问题，LSTM通过增加一个循环状态memery，使用门来控制memery的进出，可以克服这个问题
 ![avatar](images/lstm.png)
-
+对于cnews十分类的数据测试结果：
+Epoch: 05 | Epoch Time: 10m 55s
+        Train Loss: 0.026 | Train Acc: 99.24%
+         Val. Loss: 0.204 |  Val. Acc: 95.49%
+Test Loss: 0.096 | Test Acc: 97.26%
 
 ### fastText
 ![avatar](images/FastText.png)

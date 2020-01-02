@@ -1,9 +1,10 @@
-from NNModels.trainers import test, trainer, parameter_prepared
+from NNModels.trainers import test, trainer, parameter_prepared,bert_parameter_prepared
 from utils import predict_sentiment, predict_class
-
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 def run():
-    config = parameter_prepared()
+    config = bert_parameter_prepared()
     # 训练
     trainer(config)
     # 测试

@@ -2,18 +2,18 @@ from utils import epoch_time
 from utils import categorical_evaluate as evaluate
 from utils import categorical_train as train
 import time
-from data_process import weibo_data_process,cnews_data_process
-from utils import predict_sentiment,count_parameters
-from config import WeiboConfig,CnewsConfig
+from data_process import weibo_data_process,cnews_data_process,bert_data_process
+from utils import predict_sentiment,count_parameters,freeze_bert_paramers,show_paramers_require_grad
+from config import WeiboConfig,CnewsConfig,BertConfig
 from torch import optim, nn
-from NNModels.layers import BiLSTM,FastText,RNN,TextCNN
+from NNModels.layers import BiLSTM,FastText,RNN,TextCNN,BERTGRUSentiment
 import torch
 
 def parameter_prepared():
     # config = WeiboConfig()
     config = CnewsConfig()
     # 获取数据清洗后的结果
-    config.TEXT, config.LABEL, config.train_iterator, config.val_iterator, config.test_iterator = cnews_data_process()
+    config.TEXT, config.LABEL, config.train_iterator, config.val_iterator, config.test_iterator = bert_data_process()
     # 词汇表的大小
     config.input_dim = len(config.TEXT.vocab)
     config.output_dim = len(config.LABEL.vocab)
@@ -26,9 +26,15 @@ def parameter_prepared():
 
 
     # 定义模型
-    config.model = BiLSTM(config.input_dim,config.embedding_dim,config.hidden_dim,config.output_dim,config.n_layer,
-                          config.bidirection,config.dropout, config.pad_idx)
+    # config.model = BiLSTM(config.input_dim,config.embedding_dim,config.hidden_dim,config.output_dim,config.n_layer,
+    #                       config.bidirection,config.dropout, config.pad_idx)
+    config.model = BERTGRUSentiment(config.bert,config.hidden_dim,config.output_dim,config.n_layer,config.bidirection,config.dropout)
 
+    # 将预训练的bert的参数固定住。
+    count_parameters(config.model)
+    freeze_bert_paramers(config.model)
+    count_parameters(config.model)
+    show_paramers_require_grad(config.model)
 
     # 优化器，损失
     config.optimizer = optim.Adam(config.model.parameters(), lr=1e-3)
@@ -52,6 +58,34 @@ def parameter_prepared():
     print(f'The model has {count_parameters(config.model):,} trainable parameters')
     return config
 
+def bert_parameter_prepared():
+    # config = WeiboConfig()
+    config = BertConfig()
+    # 获取数据清洗后的结果
+    config.TEXT, config.LABEL, config.train_iterator, config.val_iterator, config.test_iterator = bert_data_process()
+
+    # 定义模型
+    config.model = BERTGRUSentiment(config.bert,config.hidden_dim,config.output_dim,config.n_layer,config.bidirection,config.dropout)
+
+    # 将预训练的bert的参数固定住。
+    print(count_parameters(config.model))
+    freeze_bert_paramers(config.model)
+    print(count_parameters(config.model))
+    show_paramers_require_grad(config.model)
+
+    # 优化器，损失
+    config.optimizer = optim.Adam(config.model.parameters(), lr=1e-3)
+    # config.criterion = nn.BCEWithLogitsLoss() # 二分类
+    config.criterion = nn.CrossEntropyLoss()
+
+    # 加载到GPU
+    # # 开启并行运算
+    # config.model = torch.nn.DataParallel(config.model)
+    config.model = config.model.to(config.device)
+    config.criterion = config.criterion.to(config.device)
+
+    print(f'The model has {count_parameters(config.model):,} trainable parameters')
+    return config
 
 def trainer(config):
 
@@ -75,6 +109,7 @@ def trainer(config):
         print(f'Epoch: {epoch + 1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
         print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc * 100:.2f}%')
         print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc * 100:.2f}%')
+
 
 
 

@@ -10,6 +10,7 @@ from collections import Counter
 import jieba
 import os
 import tqdm
+from pytorch_transformers import BertTokenizer, BertModel
 
 
 def generate_bigrams(x):
@@ -103,7 +104,8 @@ def categorical_train(model, iterator, optimizer, criterion):
         optimizer.zero_grad()
         text, text_lenths = batch.text
 
-        predictions = model(text,text_lenths)
+        # predictions = model(text, text_lenths).squeeze(1)  # for LSTM
+        predictions = model(text).squeeze(1)
 
         loss = criterion(predictions, batch.label)
 
@@ -128,7 +130,8 @@ def categorical_evaluate(model, iterator, criterion):
     with torch.no_grad():
         for batch in iterator:
             text, text_lenths = batch.text
-            predictions = model(text,text_lenths)
+            # predictions = model(text, text_lenths).squeeze(1) # for LSTM
+            predictions = model(text).squeeze(1)
 
             loss = criterion(predictions, batch.label)
 
@@ -138,6 +141,7 @@ def categorical_evaluate(model, iterator, criterion):
             epoch_acc += acc.item()
 
     return epoch_loss / len(iterator), epoch_acc / len(iterator)
+
 
 def epoch_time(start_time, end_time):
     """计算一次epoch时间"""
@@ -180,6 +184,7 @@ def predict_sentiment(config, sentence, min_len=5):
     prediction = torch.sigmoid(config.model(tensor))
     return prediction.item()
 
+
 def predict_class(config, sentence, min_len=5):
     """多分类"""
     # 加载模型 进行测试
@@ -192,8 +197,33 @@ def predict_class(config, sentence, min_len=5):
     tensor = torch.LongTensor(indexed).to(config.device)
     tensor = tensor.unsqueeze(1)
     preds = config.model(tensor)
-    max_preds = preds.argmax(dim = 1)
+    max_preds = preds.argmax(dim=1)
     return max_preds.item()
+
+
+def freeze_bert_paramers(model):
+    for name, param in model.named_parameters():
+        if name.startswith('bert'):
+            param.requires_grad = False
+
+
+def show_paramers_require_grad(model):
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            print(name)
+
+
+def bert_tokenizer_init():
+    bert_model = './data/bert_model'
+    return BertTokenizer.from_pretrained(bert_model)
+
+
+def tokenize_and_cut(sentence, max_input_length=512):
+    tokenizer = bert_tokenizer_init()
+    tokens = tokenizer.tokenize(sentence)
+    tokens = tokens[:max_input_length - 2]
+    return tokens
+
 
 def get_vector(embeddings, word):
     """获取word对应的词向量
@@ -220,6 +250,8 @@ def write_embeddings(path, embeddings, vocab):
                 continue
             vector = ' '.join([str(i) for i in embedding.tolist()])
             f.write(f'{word} {vector}\n')
+
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~分割线：下面全部都是数据预处理需要用到的函数~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def clean_line(s):
@@ -336,5 +368,3 @@ def save_cnews_csv(cnews_path):
     test.to_csv(os.path.join(cnews_path, 'csv/test.csv'), index=0, encoding="utf8")
     train.to_csv(os.path.join(cnews_path, 'csv/train.csv'), index=0, encoding="utf8")
     val.to_csv(os.path.join(cnews_path, 'csv/val.csv'), index=0, encoding="utf8")
-
-
