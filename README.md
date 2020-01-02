@@ -52,6 +52,13 @@ Epoch: 05 | Epoch Time: 10m 55s
          Val. Loss: 0.204 |  Val. Acc: 95.49%
 Test Loss: 0.096 | Test Acc: 97.26%
 
+bert + LSTM
+Epoch: 05 | Epoch Time: 21m 20s
+        Train Loss: 0.033 | Train Acc: 98.94%
+         Val. Loss: 0.198 |  Val. Acc: 94.32%
+Test Loss: 0.133 | Test Acc: 95.99%
+
+
 ### fastText
 ![avatar](images/FastText.png)
 与LSTM相比模型参数相差不大，但是fastText速度更快，是LSTM的1/6。效果略低于lstm
@@ -68,4 +75,7 @@ Test Loss: 0.171 | Test Acc: 95.49%
 
 ### Multi-layer RNN(deep-rnn)
 ![avatar](images/multi_rnn.png)
+
+### transformer
+![avatar](images/transformer.png)
 ## 参考
