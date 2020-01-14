@@ -15,12 +15,16 @@
 
 
 ## 文件说明
+全局配置文件由三部分组成；
+* 数据集及数据预处理的配置
+* 模型的配置
+* 训练的配置
 
 
 ## 数据集
 
 * [toutiao_cat_data.txt](data/toutiao_cat_data.txt) 新闻短文本分类数据集，38万条数据，15个分类，详见[这里](https://github.com/fatecbf/toutiao-text-classfication-dataset)
-* [weibo_senti_100k.csv](data/weibo_senti_100k.csv) 带情感标注新浪微博，10万条数据，2个分类，正向负向约各5万，详见[这里](https://github.com/SophonPlus/ChineseNlpCorpus/blob/master/datasets/weibo_senti_100k/intro.ipynb)
+* [weibo_senti_100k.csv](data/weibo/weibo_senti_100k.csv) 带情感标注新浪微博，10万条数据，2个分类，正向负向约各5万，详见[这里](https://github.com/SophonPlus/ChineseNlpCorpus/blob/master/datasets/weibo_senti_100k/intro.ipynb)
 * [ChnSentiCorp_htl_all.csv](data/ChnSentiCorp_htl_all.csv) 酒店评论数据，7000条数据，2个分类，正向5000多，负向2000多，详见[这里](https://github.com/SophonPlus/ChineseNlpCorpus/blob/master/datasets/ChnSentiCorp_htl_all/intro.ipynb)
 *（以上数据集来自[ChineseNLPCorpus](https://github.com/InsaneLife/ChineseNLPCorpus)）*
 
@@ -44,6 +48,7 @@ Epoch: 10 | Epoch Time: 0m 9s
 Test Loss: 0.693 | Test Acc: 50.03%
 
 ### LSTM
+注意：batch_first = False
 因为rnn存在梯度弥散的问题，LSTM通过增加一个循环状态memery，使用门来控制memery的进出，可以克服这个问题
 ![avatar](images/lstm.png)
 对于cnews十分类的数据测试结果：
@@ -67,6 +72,7 @@ Epoch: 05 | Epoch Time: 0m 10s
 	 Val. Loss: 0.170 |  Val. Acc: 95.21%
 Test Loss: 0.171 | Test Acc: 95.49%
 ### TextCNN
+注意：batch_first = True
 ![avatar](images/TextCNN.jpg)
 #### 注意：句子的最大 大小 不能小于 所有卷积核中宽度最大的卷积核宽度
 

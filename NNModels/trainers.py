@@ -1,102 +1,113 @@
-from utils import epoch_time
-from utils import categorical_evaluate as evaluate
-from utils import categorical_train as train
+from utils import epoch_time, count_parameters, freeze_bert_paramers, show_paramers_require_grad
+from utils import categorical_evaluate, binary_evaluate
+from utils import categorical_train, binary_train
 import time
-from data_process import weibo_data_process,cnews_data_process,bert_data_process
-from utils import predict_sentiment,count_parameters,freeze_bert_paramers,show_paramers_require_grad
-from config import WeiboConfig,CnewsConfig,BertConfig
 from torch import optim, nn
-from NNModels.layers import BiLSTM,FastText,RNN,TextCNN,BERTGRUSentiment
+from NNModels.layers import BiLSTM, FastText, RNN, TextCNN, BERTGRUSentiment, BertLSTM,BiLSTMAttention
 import torch
+from data_process import data_process
 
-def parameter_prepared():
-    # config = WeiboConfig()
-    config = CnewsConfig()
+
+def parameter_prepared(config):
+
     # 获取数据清洗后的结果
-    config.TEXT, config.LABEL, config.train_iterator, config.val_iterator, config.test_iterator = bert_data_process()
-    # 词汇表的大小
-    config.input_dim = len(config.TEXT.vocab)
-    config.output_dim = len(config.LABEL.vocab)
-    config.pad_idx = config.TEXT.vocab.stoi[config.TEXT.pad_token]
-    config.unk_idx = config.TEXT.vocab.stoi[config.TEXT.unk_token]
+    config.data_config.TEXT, config.data_config.LABEL, config.data_config.train_iterator, config.data_config.val_iterator, config.data_config.test_iterator = data_process(
+        config)
 
-    # 输出预训练embedding的shape
-    pretrained_embeddings = config.TEXT.vocab.vectors
-    print(f'word embedding shape:{pretrained_embeddings.shape}')
+    if config.is_multiclassification:
+        config.model_config.output_dim = len(config.data_config.LABEL.vocab)
+    else:
+        config.model_config.output_dim = 1  # 二分类
+
+    if not config.is_bert_embedding:
+        # 词汇表的大小
+        config.model_config.input_dim = len(config.data_config.TEXT.vocab)
+        config.data_config.pad_idx = config.data_config.TEXT.vocab.stoi[config.data_config.TEXT.pad_token]
+        config.data_config.unk_idx = config.data_config.TEXT.vocab.stoi[config.data_config.TEXT.unk_token]
+        # 输出预训练embedding的shape
+        pretrained_embeddings = config.data_config.TEXT.vocab.vectors
+        print(f'word embedding shape:{pretrained_embeddings.shape}')
+
+        # 定义模型
+        if config.model_config.model_name == 'LSTM':
+            config.model_config.model = BiLSTM(config.model_config.input_dim, config.model_config.embedding_dim,
+                                               config.model_config.hidden_dim, config.model_config.output_dim,
+                                               config.model_config.n_layer,
+                                               config.model_config.bidirection, config.model_config.dropout,
+                                               config.data_config.pad_idx)
+        elif config.model_config.model_name == 'LSTM-ATT':
+            config.model_config.model = BiLSTMAttention(config.model_config.input_dim, config.model_config.embedding_dim,
+                                               config.model_config.hidden_dim, config.model_config.output_dim,
+                                               config.model_config.n_layer,
+                                               config.model_config.bidirection, config.model_config.dropout,
+                                               config.data_config.pad_idx,batch_first=config.data_config.batch_first)
+
+        # 优化器，损失
+        config.trainer_config.optimizer = optim.Adam(config.model_config.model.parameters(), lr=1e-3)
+        if config.is_multiclassification:
+            config.trainer_config.criterion = nn.CrossEntropyLoss()
+        else:
+            config.trainer_config.criterion = nn.BCEWithLogitsLoss()  # 二分类
+
+        # 把词向量copy到模型
+        config.model_config.model.embedding.weight.data.copy_(pretrained_embeddings)
+        # 把unknown 和 pad 向量设置为零
+        config.model_config.model.embedding.weight.data[config.data_config.unk_idx] = torch.zeros(
+            config.model_config.embedding_dim)
+        config.model_config.model.embedding.weight.data[config.data_config.pad_idx] = torch.zeros(
+            config.model_config.embedding_dim)
+        print('word embedding:')
+        print(config.model_config.model.embedding.weight.data)
 
 
-    # 定义模型
-    # config.model = BiLSTM(config.input_dim,config.embedding_dim,config.hidden_dim,config.output_dim,config.n_layer,
-    #                       config.bidirection,config.dropout, config.pad_idx)
-    config.model = BERTGRUSentiment(config.bert,config.hidden_dim,config.output_dim,config.n_layer,config.bidirection,config.dropout)
+    else:
 
-    # 将预训练的bert的参数固定住。
-    count_parameters(config.model)
-    freeze_bert_paramers(config.model)
-    count_parameters(config.model)
-    show_paramers_require_grad(config.model)
+        # 定义模型
+        if config.model_config.model_name == 'LSTM':
+            config.model_config.model = BertLSTM(config.data_config.bert, config.model_config.hidden_dim,
+                                                 config.model_config.output_dim, config.model_config.n_layer,
+                                                 config.model_config.bidirection,
+                                                 config.model_config.dropout)
 
-    # 优化器，损失
-    config.optimizer = optim.Adam(config.model.parameters(), lr=1e-3)
-    # config.criterion = nn.BCEWithLogitsLoss() # 二分类
-    config.criterion = nn.CrossEntropyLoss()
+        # 将预训练的bert的参数固定住。
+        print(count_parameters(config.model_config.model))
+        freeze_bert_paramers(config.model_config.model)
+        print(count_parameters(config.model_config.model))
+        show_paramers_require_grad(config.model_config.model)
 
-    # 把词向量copy到模型
-    config.model.embedding.weight.data.copy_(pretrained_embeddings)
-    # 把unknown 和 pad 向量设置为零
-    config.model.embedding.weight.data[config.unk_idx] = torch.zeros(config.embedding_dim)
-    config.model.embedding.weight.data[config.pad_idx] = torch.zeros(config.embedding_dim)
-    print('word embedding:')
-    print(config.model.embedding.weight.data)
+        # 优化器，损失
+        config.trainer_config.optimizer = optim.Adam(config.model_config.model.parameters(), lr=1e-3)
+
+        if config.is_multiclassification:
+            config.trainer_config.criterion = nn.CrossEntropyLoss()
+        else:
+            config.trainer_config.criterion = nn.BCEWithLogitsLoss()  # 二分类
 
     # 加载到GPU
-    # # 开启并行运算
+    # 开启并行运算
     # config.model = torch.nn.DataParallel(config.model)
-    config.model = config.model.to(config.device)
-    config.criterion = config.criterion.to(config.device)
+    config.model_config.model = config.model_config.model.to(config.device)
+    config.trainer_config.criterion = config.trainer_config.criterion.to(config.device)
 
-    print(f'The model has {count_parameters(config.model):,} trainable parameters')
-    return config
+    print(f'The model has {count_parameters(config.model_config.model):,} trainable parameters')
 
-def bert_parameter_prepared():
-    # config = WeiboConfig()
-    config = BertConfig()
-    # 获取数据清洗后的结果
-    config.TEXT, config.LABEL, config.train_iterator, config.val_iterator, config.test_iterator = bert_data_process()
-
-    # 定义模型
-    config.model = BERTGRUSentiment(config.bert,config.hidden_dim,config.output_dim,config.n_layer,config.bidirection,config.dropout)
-
-    # 将预训练的bert的参数固定住。
-    print(count_parameters(config.model))
-    freeze_bert_paramers(config.model)
-    print(count_parameters(config.model))
-    show_paramers_require_grad(config.model)
-
-    # 优化器，损失
-    config.optimizer = optim.Adam(config.model.parameters(), lr=1e-3)
-    # config.criterion = nn.BCEWithLogitsLoss() # 二分类
-    config.criterion = nn.CrossEntropyLoss()
-
-    # 加载到GPU
-    # # 开启并行运算
-    # config.model = torch.nn.DataParallel(config.model)
-    config.model = config.model.to(config.device)
-    config.criterion = config.criterion.to(config.device)
-
-    print(f'The model has {count_parameters(config.model):,} trainable parameters')
-    return config
 
 def trainer(config):
-
     best_valid_loss = float('inf')
 
-    for epoch in range(config.epoch):
+    for epoch in range(config.trainer_config.epoch):
 
         start_time = time.time()
-
-        train_loss, train_acc = train(config.model, config.train_iterator, config.optimizer, config.criterion)
-        valid_loss, valid_acc = evaluate(config.model, config.val_iterator, config.criterion)
+        if config.is_multiclassification:
+            train_loss, train_acc = categorical_train(config.model_config.model, config.data_config.train_iterator,
+                                                      config.trainer_config.optimizer, config.trainer_config.criterion)
+            valid_loss, valid_acc = categorical_evaluate(config.model_config.model, config.data_config.val_iterator,
+                                                         config.trainer_config.criterion)
+        else:
+            train_loss, train_acc = binary_train(config.model_config.model, config.data_config.train_iterator,
+                                                 config.trainer_config.optimizer, config.trainer_config.criterion)
+            valid_loss, valid_acc = binary_evaluate(config.model_config.model, config.data_config.val_iterator,
+                                                    config.trainer_config.criterion)
 
         end_time = time.time()
 
@@ -104,23 +115,21 @@ def trainer(config):
 
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
-            torch.save(config.model.state_dict(), config.best_model)
+            torch.save(config.model_config.model.state_dict(), config.model_config.best_model)
 
         print(f'Epoch: {epoch + 1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
         print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc * 100:.2f}%')
         print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc * 100:.2f}%')
 
 
-
-
-
 def test(config):
-
     # 加载模型 进行测试
-    config.model.load_state_dict(torch.load(config.best_model))
-
-    test_loss, test_acc = evaluate(config.model, config.test_iterator, config.criterion)
+    config.model_config.model.load_state_dict(torch.load(config.model_config.best_model))
+    if config.is_multiclassification:
+        test_loss, test_acc = categorical_evaluate(config.model_config.model, config.data_config.test_iterator,
+                                                   config.trainer_config.criterion)
+    else:
+        test_loss, test_acc = binary_evaluate(config.model_config.model, config.data_config.test_iterator,
+                                              config.trainer_config.criterion)
 
     print(f'Test Loss: {test_loss:.3f} | Test Acc: {test_acc * 100:.2f}%')
-
-

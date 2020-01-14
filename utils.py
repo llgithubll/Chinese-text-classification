@@ -55,8 +55,8 @@ def binary_train(model, iterator, optimizer, criterion):
 
     for batch in iter(iterator):
         optimizer.zero_grad()
-        # text, text_lengths = batch.text
-        predictions = model(batch.text).squeeze(1)
+        text, text_lengths = batch.text
+        predictions = model(text, text_lengths).squeeze(1)
 
         loss = criterion(predictions, batch.label)
 
@@ -80,8 +80,8 @@ def binary_evaluate(model, iterator, criterion):
 
     with torch.no_grad():
         for batch in iterator:
-            # text, text_lengths = batch.text
-            predictions = model(batch.text)
+            text, text_lengths = batch.text
+            predictions = model(text, text_lengths).squeeze(1)
 
             loss = criterion(predictions, batch.label)
 
@@ -104,8 +104,8 @@ def categorical_train(model, iterator, optimizer, criterion):
         optimizer.zero_grad()
         text, text_lenths = batch.text
 
-        # predictions = model(text, text_lenths).squeeze(1)  # for LSTM
-        predictions = model(text).squeeze(1)
+        predictions = model(text, text_lenths)  # for LSTM
+        # predictions = model(text).squeeze(1)
 
         loss = criterion(predictions, batch.label)
 
@@ -130,8 +130,8 @@ def categorical_evaluate(model, iterator, criterion):
     with torch.no_grad():
         for batch in iterator:
             text, text_lenths = batch.text
-            # predictions = model(text, text_lenths).squeeze(1) # for LSTM
-            predictions = model(text).squeeze(1)
+            predictions = model(text, text_lenths) # for LSTM
+            # predictions = model(text).squeeze(1)
 
             loss = criterion(predictions, batch.label)
 
@@ -213,13 +213,11 @@ def show_paramers_require_grad(model):
             print(name)
 
 
-def bert_tokenizer_init():
-    bert_model = './data/bert_model'
-    return BertTokenizer.from_pretrained(bert_model)
+
 
 
 def tokenize_and_cut(sentence, max_input_length=512):
-    tokenizer = bert_tokenizer_init()
+    tokenizer = BertTokenizer.from_pretrained('./data/bert_model')
     tokens = tokenizer.tokenize(sentence)
     tokens = tokens[:max_input_length - 2]
     return tokens
@@ -259,7 +257,7 @@ def clean_line(s):
     :param s: 清洗中文语料格式
     :return:
     """
-    rule = re.compile(u'[^a-zA-Z0-9\u4e00-\u9fa5"#$%&\'()*+,-./:;<=>@\\^_`{|}~]+')
+    rule = re.compile(u'[^a-zA-Z0-9\u4e00-\u9fa5"#$%&\'()*+,-.:;<=>@\\^_`{|}]+')
     s = re.sub(rule, '', s)
     s = re.sub('[、]+', '，', s)
     s = re.sub('\'', '', s)
