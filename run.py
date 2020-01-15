@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from config import GlobalConfig
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 SEED = 1234
 random.seed(SEED)
 np.random.seed(SEED)
@@ -17,7 +17,7 @@ def run():
     global_config = GlobalConfig()
     # global_config.data_config.dataset_name = 'weibo_senti_100k'
     global_config.data_config.dataset_name = 'cnews'
-    global_config.model_config.model_name = 'LSTM-ATT'
+    global_config.model_config.model_name = 'LSTM'
     global_config.is_multiclassification = True  # 是否进行多分类
     global_config.is_bert_embedding = False  # 是否使用预训练的bert embedding
     parameter_prepared(global_config)

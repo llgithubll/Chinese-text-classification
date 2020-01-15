@@ -34,7 +34,7 @@ def parameter_prepared(config):
                                                config.model_config.hidden_dim, config.model_config.output_dim,
                                                config.model_config.n_layer,
                                                config.model_config.bidirection, config.model_config.dropout,
-                                               config.data_config.pad_idx)
+                                               config.data_config.pad_idx,batch_first=config.data_config.batch_first)
         elif config.model_config.model_name == 'LSTM-ATT':
             config.model_config.model = BiLSTMAttention(config.model_config.input_dim, config.model_config.embedding_dim,
                                                config.model_config.hidden_dim, config.model_config.output_dim,

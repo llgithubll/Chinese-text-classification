@@ -13,7 +13,7 @@ class DataConfig():
         self.weibo_csv_dir = './data/weibo/csv'
         # cnews 十分类数据集
         self.cnews_rawdata_dir = './data/cnews'
-        self.cnews_csv_dir = './data/cnews/develop_csv'
+        self.cnews_csv_dir = './data/cnews/csv'
 
         self.vocab_size = 25000  # 词汇表大小
 
@@ -40,7 +40,7 @@ class ModelConfig:
 
 class TrainerConfig:
     def __init__(self):
-        self.epoch = 5
+        self.epoch = 50
 
 
 class GlobalConfig:
