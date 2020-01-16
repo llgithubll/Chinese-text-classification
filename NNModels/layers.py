@@ -1,10 +1,6 @@
 from torch import nn
 import torch
 import torch.nn.functional as F
-import copy
-import numpy as np
-import math
-from torch.autograd import Variable
 
 
 class FastText(nn.Module):
@@ -200,18 +196,33 @@ class BertLSTM(nn.Module):
         return self.fc(hidden)
 
 
-class BiLSTM(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim, n_layers,
+class RnnModel(nn.Module):
+    def __init__(self, rnn_type, input_dim, embedding_dim, hidden_dim, output_dim, n_layers,
                  bidirectional, dropout, pad_idx, batch_first=False):
         super().__init__()
-
-        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
-
-        self.rnn = nn.LSTM(embedding_dim,
-                           hidden_dim,
-                           num_layers=n_layers,
-                           bidirectional=bidirectional,
-                           dropout=dropout)
+        self.rnn_type = rnn_type
+        self.embedding = nn.Embedding(input_dim, embedding_dim, padding_idx=pad_idx)
+        if rnn_type == 'LSTM':
+            self.rnn = nn.LSTM(embedding_dim,
+                               hidden_dim,
+                               num_layers=n_layers,
+                               bidirectional=bidirectional,
+                               batch_first=batch_first,
+                               dropout=dropout)
+        elif rnn_type == 'GRU':
+            self.rnn = nn.GRU(embedding_dim,
+                              hidden_size=hidden_dim,
+                              num_layers=n_layers,
+                              bidirectional=bidirectional,
+                              batch_first=batch_first,
+                              dropout=dropout)
+        else:
+            self.rnn = nn.RNN(embedding_dim,
+                              hidden_size=hidden_dim,
+                              num_layers=n_layers,
+                              bidirectional=bidirectional,
+                              batch_first=batch_first,
+                              dropout=dropout)
 
         self.fc = nn.Linear(hidden_dim * 2, output_dim)
 
@@ -227,8 +238,10 @@ class BiLSTM(nn.Module):
 
         # pack sequence
         packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths, batch_first=self.batch_first)
-
-        packed_output, (hidden, cell) = self.rnn(packed_embedded)
+        if self.rnn_type in ['RNN', 'GRU']:
+            packed_output, hidden = self.rnn(packed_embedded)
+        else:
+            packed_output, (hidden, cell) = self.rnn(packed_embedded)
 
         # unpack sequence
         output, output_lengths = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=self.batch_first)
@@ -238,6 +251,7 @@ class BiLSTM(nn.Module):
             last_tensor = torch.mean(output, dim=1)
         else:
             last_tensor = torch.mean(output, dim=0)
+            hidden = torch.cat((hidden[-2, :, :], hidden[-1, :, :]), dim=1)
 
         fc_input = self.dropout(last_tensor)
         out = self.fc(fc_input)
@@ -288,97 +302,48 @@ class BERTGRUSentiment(nn.Module):
         return output
 
 
-# class RNNModel(nn.Module):
-#     """Container module with an encoder, a recurrent module, and a decoder."""
-#
-#     def __init__(self, rnn_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False, attention=False,
-#                  attention_width=3, cuda=False):
-#         super(RNNModel, self).__init__()
-#         # self.drop = nn.Dropout(dropout)
-#         # self.encoder = nn.Embedding(ntoken, ninp)
-#         # if rnn_type in ['LSTM', 'GRU']:
-#         #     self.rnn = getattr(nn, rnn_type)(ninp, nhid, nlayers, dropout=dropout)
-#         # else:
-#         #     try:
-#         #         nonlinearity = {'RNN_TANH': 'tanh', 'RNN_RELU': 'relu'}[rnn_type]
-#         #     except KeyError:
-#         #         raise ValueError("""An invalid option for `--model` was supplied,
-#         #                          options are ['LSTM', 'GRU', 'RNN_TANH' or 'RNN_RELU']""")
-#         #     self.rnn = nn.RNN(ninp, nhid, nlayers, nonlinearity=nonlinearity, dropout=dropout)
-#         if attention:
-#             self.decoder = nn.Linear(nhid, ntoken)
-#         else:
-#             self.decoder = nn.Linear(nhid, ntoken)
-#         # if tie_weights:
-#         #     if nhid != ninp:
-#         #         raise ValueError('When using the tied flag, nhid must be equal to emsize')
-#         #     self.decoder.weight = self.encoder.weight
-#
-#         # self.softmax = nn.Softmax()
-#         if attention:
-#             self.AttentionLayer = AttentionLayer(cuda, nhid)
-#         self.init_weights()
-#
-#         # self.rnn_type = rnn_type
-#         # self.nhid = nhid
-#         # self.nlayers = nlayers
-#         # self.attention = attention
-#         # self.attention_width = attention_width
-#
-#     # def init_weights(self):
-#     #     initrange = 0.1
-#     #     self.encoder.weight.data.uniform_(-initrange, initrange)
-#     #     self.decoder.bias.data.fill_(0)
-#     #     self.decoder.weight.data.uniform_(-initrange, initrange)
-#     # def init_hidden(self, bsz):
-#     #     weight = next(self.parameters()).data
-#     #     if self.rnn_type == 'LSTM':
-#     #         return (Variable(weight.new(self.nlayers, bsz, self.nhid).zero_()),
-#     #                 Variable(weight.new(self.nlayers, bsz, self.nhid).zero_()))
-#     #     else:
-#     #         return Variable(weight.new(self.nlayers, bsz, self.nhid).zero_())
-#     def forward(self, input, hidden):
-#         # print("input size:",input.size())
-#         emb = self.drop(self.encoder(input))
-#         # print("emb size:",emb.size())
-#         output, hidden = self.rnn(emb, hidden)
-#         # print("rnn output",output.size())
-#         if self.attention:
-#             output = self.AttentionLayer.forward(output, self.attention_width)
-#         output = self.drop(output)
-#         decoded = self.decoder(output.view(output.size(0) * output.size(1), output.size(2)))
-#         return decoded.view(output.size(0), output.size(1), decoded.size(1)), hidden
-
-
-class BiLSTMAttention(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim, n_layers,
-                 bidirectional, dropout, pad_idx, batch_first=False,use_cuda=True,attention_size=85):
+class RnnModelAttention(nn.Module):
+    def __init__(self, rnn_type, vocab_size, embedding_dim, hidden_dim, output_dim, n_layers,
+                 bidirectional, dropout, pad_idx,device, batch_first=False, attention_size=32):
         super().__init__()
-
+        self.rnn_type = rnn_type
         self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
         self.hidden_dim = hidden_dim
         self.bidirectional = bidirectional
         self.attention_size = attention_size
+        self.output_dim = output_dim
 
         if self.bidirectional:
             self.num_direction = 2
         else:
             self.num_direction = 1
 
-        if use_cuda:
-            self.w_omega = Variable(torch.zeros(self.hidden_dim * self.num_direction, self.attention_size).cuda())
-            self.u_omega = Variable(torch.zeros(self.attention_size).cuda())
+        self.w_omega = torch.zeros(self.hidden_dim * self.num_direction, self.attention_size).requires_grad_(True).to(device)
+        self.u_omega = torch.zeros(self.attention_size).requires_grad_(True).to(device)
+
+        if rnn_type == 'LSTM-ATT':
+            self.rnn = nn.LSTM(embedding_dim,
+                               hidden_dim,
+                               num_layers=n_layers,
+                               bidirectional=bidirectional,
+                               batch_first=batch_first,
+                               dropout=dropout)
+        elif rnn_type == 'GRU-ATT':
+            self.rnn = nn.GRU(embedding_dim,
+                              hidden_size=hidden_dim,
+                              num_layers=n_layers,
+                              bidirectional=bidirectional,
+                              batch_first=batch_first,
+                              dropout=dropout)
         else:
-            self.w_omega = Variable(torch.zeros(self.hidden_size * self.num_direction, self.attention_size))
-            self.u_omega = Variable(torch.zeros(self.attention_size))
+            self.rnn = nn.RNN(embedding_dim,
+                              hidden_size=hidden_dim,
+                              num_layers=n_layers,
+                              bidirectional=bidirectional,
+                              batch_first=batch_first,
+                              dropout=dropout)
 
-        self.rnn = nn.LSTM(embedding_dim,
-                           hidden_dim,
-                           num_layers=n_layers,
-                           bidirectional=bidirectional,
-                           dropout=dropout)
-
-        self.fc = nn.Linear(hidden_dim * 2, output_dim)
+        self.fc = nn.Linear(hidden_dim * 6, output_dim)
 
         self.dropout = nn.Dropout(dropout)
         self.batch_first = batch_first
@@ -420,18 +385,33 @@ class BiLSTMAttention(nn.Module):
         # pack sequence
         packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths, batch_first=self.batch_first)
 
-        packed_output, (hidden, cell) = self.rnn(packed_embedded)
+        if self.rnn_type in ['RNN-ATT', 'GRU-ATT']:
+            packed_output, hidden = self.rnn(packed_embedded)
+        else:
+            packed_output, (hidden, cell) = self.rnn(packed_embedded)
 
         # unpack sequence
-        output, output_lengths = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=self.batch_first)
-        attention_output = self.attention_net(output)
-        # use mean
-        # if self.batch_first:
-        #     last_tensor = torch.mean(output, dim=1)
-        # else:
-        #     last_tensor = torch.mean(output, dim=0)
+        lstm_output, output_lengths = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=self.batch_first)
 
-        fc_input = self.dropout(attention_output)
+        hidden = torch.cat((hidden[-2, :, :], hidden[-1, :, :]), dim=1)
+        # use mean
+        if self.batch_first:
+            # 加上attention
+            attention_output = self.attention_net(lstm_output.permute(1, 0, 2))
+            lstm_output = torch.mean(lstm_output, dim=1)
+
+        else:
+            # 加上attention
+            attention_output = self.attention_net(lstm_output)
+            lstm_output = torch.mean(lstm_output, dim=0)
+
+
+        # lstm_out 和 attention_out 相加
+        # output = torch.add(lstm_output,attention_output,hidden)
+        # [lstm_out, attention_out]
+        output = torch.cat((lstm_output,attention_output,hidden),dim=1)
+        fc_input = self.dropout(output)
+
         out = self.fc(fc_input)
 
         return out

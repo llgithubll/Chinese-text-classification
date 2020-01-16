@@ -366,3 +366,12 @@ def save_cnews_csv(cnews_path):
     test.to_csv(os.path.join(cnews_path, 'csv/test.csv'), index=0, encoding="utf8")
     train.to_csv(os.path.join(cnews_path, 'csv/train.csv'), index=0, encoding="utf8")
     val.to_csv(os.path.join(cnews_path, 'csv/val.csv'), index=0, encoding="utf8")
+
+def train_log_file(log_dir,dataset_name,model_name,num_epoch):
+    if not os.path.exists(log_dir):
+        os.mkdir(log_dir)
+
+    return open(os.path.join(log_dir,'{}_{}_{}.txt'.format(dataset_name,model_name,num_epoch)),'w',encoding='utf8')
+
+def test_log_file(log_dir,dataset_name,model_name,num_epoch):
+    return open(os.path.join(log_dir,'{}_{}_{}.txt'.format(dataset_name,model_name,num_epoch)),'a',encoding='utf8')

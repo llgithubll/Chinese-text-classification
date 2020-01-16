@@ -13,17 +13,19 @@ import torch
 import os
 from utils import tokenize_and_cut
 
+
 def data_process(config):
     # 针对 不同的数据集做不同的数据处理
     if config.data_config.dataset_name == 'weibo_senti_100k':
         config.data_config.csv_dir = config.data_config.weibo_csv_dir
-        print(os.path.join(config.data_config.weibo_rawdata_dir, config.data_config.dataset_name+'.csv'))
+        print(os.path.join(config.data_config.weibo_rawdata_dir, config.data_config.dataset_name + '.csv'))
         if not os.path.exists(config.data_config.weibo_csv_dir):  # 如果csv文件不存在
 
             os.mkdir(config.data_config.weibo_csv_dir)
 
             # 加载数据
-            raw_data = pd.read_csv(os.path.join(config.data_config.weibo_rawdata_dir, config.data_config.dataset_name+'.csv'))
+            raw_data = pd.read_csv(
+                os.path.join(config.data_config.weibo_rawdata_dir, config.data_config.dataset_name + '.csv'))
             # 数据清洗
             raw_data['review'] = raw_data['review'].apply(clean_line)
             # 划分训练集、验证集、测试集
@@ -39,7 +41,8 @@ def data_process(config):
             os.mkdir(config.data_config.cnews_csv_dir)
 
             # 加载数据
-            train_data = pd.read_table(os.path.join(config.data_config.cnews_rawdata_dir, 'cnews.train.txt'), header=None)
+            train_data = pd.read_table(os.path.join(config.data_config.cnews_rawdata_dir, 'cnews.train.txt'),
+                                       header=None)
             val_data = pd.read_table(os.path.join(config.data_config.cnews_rawdata_dir, 'cnews.val.txt'), header=None)
             test_data = pd.read_table(os.path.join(config.data_config.cnews_rawdata_dir, 'cnews.test.txt'), header=None)
             # 数据清洗
@@ -51,8 +54,6 @@ def data_process(config):
             train_data.to_csv(os.path.join(config.data_config.cnews_csv_dir, 'train.csv'), index=False, encoding='utf8')
             val_data.to_csv(os.path.join(config.data_config.cnews_csv_dir, 'val.csv'), index=False, encoding='utf8')
             test_data.to_csv(os.path.join(config.data_config.cnews_csv_dir, 'test.csv'), index=False, encoding='utf8')
-
-
 
     # 是否使用bert预训练embedding
     if config.is_bert_embedding:
@@ -89,7 +90,6 @@ def data_process(config):
                                                       format='csv',
                                                       fields=[('label', LABEL), ('text', TEXT)])
 
-
         print(f"Number of training examples: {len(train)}")
         print(f"Number of validation examples: {len(val)}")
         print(f"Number of testing examples: {len(test)}")
@@ -105,9 +105,9 @@ def data_process(config):
         else:
             LABEL = data.LabelField(sequential=False, use_vocab=False, dtype=torch.float)
 
-        if config.model_config.model_name in ['LSTM','LSTM-ATT']:
-            TEXT = data.Field(sequential=True, tokenize=tokenizer,batch_first=config.data_config.batch_first,
-                              include_lengths=True)  # include_lengths=True for LSTM
+        if config.model_config.model_name in ['LSTM', 'LSTM-ATT', 'GRU', 'GRU-ATT', 'RNN', 'RNN-ATT']:
+            TEXT = data.Field(sequential=True, tokenize=tokenizer, batch_first=config.data_config.batch_first,
+                              include_lengths=config.data_config.include_lengths)  # include_lengths=True for LSTM
         elif config.model_config.model_name == 'TextCNN':
             TEXT = data.Field(sequential=True, tokenize=tokenizer, batch_first=True)
         elif config.model_config.model_name == 'FasterText':
@@ -115,7 +115,6 @@ def data_process(config):
                               include_lengths=True)  # FastText
         else:
             TEXT = data.Field(sequential=True, tokenize=tokenizer)
-
 
         # 构建数据集
         train, val, test = data.TabularDataset.splits(path=config.data_config.csv_dir, train='train.csv',
@@ -134,16 +133,15 @@ def data_process(config):
                 os.mkdir(cache)
 
             vectors = Vectors(name=config.data_config.pretrained_word_embedding, cache=cache)
-            TEXT.build_vocab(train, max_size=config.data_config.vocab_size, vectors=vectors, unk_init=torch.Tensor.normal_)
+            TEXT.build_vocab(train, max_size=config.data_config.vocab_size, vectors=vectors,
+                             unk_init=torch.Tensor.normal_)
             LABEL.build_vocab(train)
             print(LABEL.vocab.stoi)
 
         else:
-            TEXT.build_vocab(train, max_size=config.data_config.vocab_size) # 不使用预训练的词向量
+            TEXT.build_vocab(train, max_size=config.data_config.vocab_size)  # 不使用预训练的词向量
             LABEL.build_vocab(train)
             print(LABEL.vocab.stoi)
-
-
 
     # 构建迭代器
     train_iterator = data.Iterator(train, batch_size=64, device=config.device, sort_key=lambda x: len(x.text),
@@ -157,6 +155,3 @@ def data_process(config):
                                   repeat=False)
 
     return TEXT, LABEL, train_iterator, val_iterator, test_iterator
-
-
-
