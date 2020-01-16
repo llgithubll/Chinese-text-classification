@@ -21,6 +21,7 @@ class DataConfig():
 
         self.is_use_pretrained_embedding = True  # 是否使用预训练的embedding
         self.pretrained_word_embedding = './data/word_embeddings/sgns.sogou.word'  # 预训练的embedding
+        self.batch_size = 4
 
         self.bert_model_path = './data/bert_model'
         self.batch_first = True
@@ -59,7 +60,7 @@ class GlobalConfig:
     def __init__(self):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.is_multiclassification = False
-        self.is_bert_embedding = False  # 是否使用bert预训练模型
+        self.is_bert_embedding = True  # 是否使用bert训练模型
 
         # 包含 数据配置、模型配置、训练配置
         self.data_config = DataConfig()

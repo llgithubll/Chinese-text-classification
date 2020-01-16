@@ -1,9 +1,10 @@
-from utils import epoch_time, count_parameters, freeze_bert_paramers, show_paramers_require_grad, train_log_file,test_log_file
+from utils import epoch_time, count_parameters, freeze_bert_paramers, show_paramers_require_grad, train_log_file, \
+    test_log_file
 from utils import categorical_evaluate, binary_evaluate
 from utils import categorical_train, binary_train
 import time
 from torch import optim, nn
-from NNModels.layers import RnnModel, FastText, RNN, TextCNN, BERTGRUSentiment, BertLSTM, RnnModelAttention
+from NNModels.layers import RnnModel, FastText, RNN, TextCNN, BERTGRUSentiment, BertLSTM, RnnModelAttention, Bert
 import torch
 from data_process import data_process
 
@@ -67,17 +68,21 @@ def parameter_prepared(config):
     else:
 
         # 定义模型
-        if config.model_config.model_name == 'LSTM':
+        if config.model_config.model_name == 'BERT-LSTM':
             config.model_config.model = BertLSTM(config.data_config.bert, config.model_config.hidden_dim,
                                                  config.model_config.output_dim, config.model_config.n_layer,
                                                  config.model_config.bidirection,
                                                  config.model_config.dropout)
+        elif config.model_config.model_name in ['BERT']:
+            config.model_config.model = Bert(config.data_config.bert_model_path, config.model_config.hidden_dim,
+                                             config.model_config.output_dim)
 
         # 将预训练的bert的参数固定住。
         print(count_parameters(config.model_config.model))
-        freeze_bert_paramers(config.model_config.model)
-        print(count_parameters(config.model_config.model))
-        show_paramers_require_grad(config.model_config.model)
+
+        # freeze_bert_paramers(config.model_config.model)  # 是否把bert模型固定住
+        # print(count_parameters(config.model_config.model))
+        # show_paramers_require_grad(config.model_config.model)
 
         # 优化器，损失
         config.trainer_config.optimizer = optim.Adam(config.model_config.model.parameters(), lr=1e-3)
@@ -98,8 +103,9 @@ def parameter_prepared(config):
 
 def trainer(config):
     best_valid_loss = float('inf')
-    log_file = train_log_file(config.trainer_config.log_dir, config.data_config.dataset_name, config.model_config.model_name,
-                       config.trainer_config.epoch)
+    log_file = train_log_file(config.trainer_config.log_dir, config.data_config.dataset_name,
+                              config.model_config.model_name,
+                              config.trainer_config.epoch)
     for epoch in range(config.trainer_config.epoch):
 
         start_time = time.time()
@@ -134,8 +140,9 @@ def trainer(config):
 
 def test(config):
     # log 文件
-    log_file = test_log_file(config.trainer_config.log_dir, config.data_config.dataset_name, config.model_config.model_name,
-                       config.trainer_config.epoch)
+    log_file = test_log_file(config.trainer_config.log_dir, config.data_config.dataset_name,
+                             config.model_config.model_name,
+                             config.trainer_config.epoch)
     # 加载模型 进行测试
     config.model_config.model.load_state_dict(torch.load(config.model_config.best_model))
     if config.is_multiclassification:

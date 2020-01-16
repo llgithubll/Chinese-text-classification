@@ -17,7 +17,7 @@ def run():
     global_config = GlobalConfig()
     # global_config.data_config.dataset_name = 'weibo_senti_100k'
     global_config.data_config.dataset_name = 'cnews'
-    global_config.model_config.model_name = 'GRU-ATT'   # rnn 模型可选：'LSTM','LSTM-ATT','GRU','GRU-ATT','RNN',''
+    global_config.model_config.model_name = 'BERT'   # rnn 模型可选：'LSTM','LSTM-ATT','GRU','GRU-ATT','RNN','RNN-ATT','BERT'
 
     # 根据数据集确定是否进行多分类
     if global_config.data_config.dataset_name in ['weibo_senti_100k']:
@@ -25,7 +25,6 @@ def run():
     else:
         global_config.is_multiclassification = True
 
-    global_config.is_bert_embedding = False  # 是否使用预训练的bert embedding
     parameter_prepared(global_config)
     # 训练
     trainer(global_config)

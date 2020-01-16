@@ -1,3 +1,4 @@
+from pytorch_transformers import BertModel
 from torch import nn
 import torch
 import torch.nn.functional as F
@@ -304,7 +305,7 @@ class BERTGRUSentiment(nn.Module):
 
 class RnnModelAttention(nn.Module):
     def __init__(self, rnn_type, vocab_size, embedding_dim, hidden_dim, output_dim, n_layers,
-                 bidirectional, dropout, pad_idx,device, batch_first=False, attention_size=32):
+                 bidirectional, dropout, pad_idx, device, batch_first=False, attention_size=32):
         super().__init__()
         self.rnn_type = rnn_type
         self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
@@ -318,7 +319,8 @@ class RnnModelAttention(nn.Module):
         else:
             self.num_direction = 1
 
-        self.w_omega = torch.zeros(self.hidden_dim * self.num_direction, self.attention_size).requires_grad_(True).to(device)
+        self.w_omega = torch.zeros(self.hidden_dim * self.num_direction, self.attention_size).requires_grad_(True).to(
+            device)
         self.u_omega = torch.zeros(self.attention_size).requires_grad_(True).to(device)
 
         if rnn_type == 'LSTM-ATT':
@@ -405,13 +407,29 @@ class RnnModelAttention(nn.Module):
             attention_output = self.attention_net(lstm_output)
             lstm_output = torch.mean(lstm_output, dim=0)
 
-
         # lstm_out 和 attention_out 相加
         # output = torch.add(lstm_output,attention_output,hidden)
         # [lstm_out, attention_out]
-        output = torch.cat((lstm_output,attention_output,hidden),dim=1)
+        output = torch.cat((lstm_output, attention_output, hidden), dim=1)
         fc_input = self.dropout(output)
 
         out = self.fc(fc_input)
 
+        return out
+
+
+class Bert(nn.Module):
+
+    def __init__(self, bert_model_path,hidden_size,num_classes):
+        super(Bert, self).__init__()
+        self.bert = BertModel.from_pretrained(bert_model_path)
+        for param in self.bert.parameters():
+            param.requires_grad = False
+        self.fc = nn.Linear(self.bert.config.to_dict()['hidden_size'],num_classes)
+
+    def forward(self, text,text_lengths):
+        # context = x[0]  # 输入的句子
+        # mask = x[2]  # 对padding部分进行mask，和句子一个size，padding部分用0表示，如：[1, 1, 1, 1, 0, 0]
+        sentence, cls = self.bert(text)
+        out = self.fc(cls)
         return out

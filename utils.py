@@ -104,7 +104,7 @@ def categorical_train(model, iterator, optimizer, criterion):
         optimizer.zero_grad()
         text, text_lenths = batch.text
 
-        predictions = model(text, text_lenths)  # for LSTM
+        predictions = model(text,text_lenths)  # for LSTM
         # predictions = model(text).squeeze(1)
 
         loss = criterion(predictions, batch.label)

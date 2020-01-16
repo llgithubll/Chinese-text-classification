@@ -69,7 +69,7 @@ def data_process(config):
         eos_token_idx = bert_tokenizer.convert_tokens_to_ids(eos_token)
         pad_token_idx = bert_tokenizer.convert_tokens_to_ids(pad_token)
         unk_token_idx = bert_tokenizer.convert_tokens_to_ids(unk_token)
-        TEXT = data.Field(batch_first=False, include_lengths=True,
+        TEXT = data.Field(batch_first=True, include_lengths=True,
                           use_vocab=False,
                           tokenize=tokenize_and_cut,
                           preprocessing=bert_tokenizer.convert_tokens_to_ids,
@@ -144,13 +144,13 @@ def data_process(config):
             print(LABEL.vocab.stoi)
 
     # 构建迭代器
-    train_iterator = data.Iterator(train, batch_size=64, device=config.device, sort_key=lambda x: len(x.text),
+    train_iterator = data.Iterator(train, batch_size=config.data_config.batch_size, device=config.device, sort_key=lambda x: len(x.text),
                                    sort_within_batch=True,
                                    repeat=False)
-    val_iterator = data.Iterator(val, batch_size=64, device=config.device, sort_key=lambda x: len(x.text),
+    val_iterator = data.Iterator(val, batch_size=config.data_config.batch_size, device=config.device, sort_key=lambda x: len(x.text),
                                  sort_within_batch=True,
                                  repeat=False)
-    test_iterator = data.Iterator(test, batch_size=64, device=config.device, sort_key=lambda x: len(x.text),
+    test_iterator = data.Iterator(test, batch_size=config.data_config.batch_size, device=config.device, sort_key=lambda x: len(x.text),
                                   sort_within_batch=True,
                                   repeat=False)
 
